@@ -1,0 +1,516 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model - NextAuth integration
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String?   // Hashed password for credentials login
+  firstName     String?
+  lastName      String?
+  imageUrl      String?
+  role          Role      @default(EMPLOYEE)
+  emailVerified DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // NextAuth Relations
+  accounts      Account[]
+  sessions      Session[]
+
+  // New Relations for enhanced auth
+  loginLogs           LoginLog[]
+  passwordResetTokens PasswordResetToken[]
+
+  // HRMS Relations
+  employee  Employee?
+  manager   Employee[] @relation("ManagerEmployees")
+  createdBy String?
+
+  @@map("users")
+}
+
+// NextAuth Account model
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+// NextAuth Session model
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// NextAuth Verification Token model
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+// Employee model - core HRMS entity
+model Employee {
+  id             String   @id @default(cuid())
+  employeeId     String   @unique // Custom employee ID (e.g., EMP001)
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Personal Information
+  personalInfo   PersonalInfo?
+  contactInfo    ContactInfo?
+  
+  // Employment Details
+  departmentId   String?
+  department     Department? @relation(fields: [departmentId], references: [id])
+  positionId     String?
+  position       Position?   @relation(fields: [positionId], references: [id])
+  managerId      String?
+  manager        User?       @relation("ManagerEmployees", fields: [managerId], references: [id])
+  
+  // Employment Status
+  status         EmployeeStatus @default(ACTIVE)
+  hireDate       DateTime
+  terminationDate DateTime?
+  probationEndDate DateTime?
+  
+  // Salary & Benefits
+  salaryInfo     SalaryInfo?
+  
+  // Relations
+  attendance     Attendance[]
+  leaveRequests  LeaveRequest[]
+  performance    Performance[]
+  payroll        Payroll[]
+  documents      Document[]
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("employees")
+}
+
+// Personal Information
+model PersonalInfo {
+  id          String    @id @default(cuid())
+  employeeId  String    @unique
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  dateOfBirth DateTime?
+  gender      Gender?
+  maritalStatus MaritalStatus?
+  nationality String?
+  identification String? // ID/Passport number
+  emergencyContact EmergencyContact?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("personal_info")
+}
+
+// Contact Information
+model ContactInfo {
+  id          String   @id @default(cuid())
+  employeeId  String   @unique
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  phoneNumber String?
+  alternatePhone String?
+  address     String?
+  city        String?
+  state       String?
+  country     String?
+  postalCode  String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("contact_info")
+}
+
+// Emergency Contact
+model EmergencyContact {
+  id              String       @id @default(cuid())
+  personalInfoId  String       @unique
+  personalInfo    PersonalInfo @relation(fields: [personalInfoId], references: [id], onDelete: Cascade)
+  
+  name            String
+  relationship    String
+  phoneNumber     String
+  alternatePhone  String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("emergency_contacts")
+}
+
+// Department
+model Department {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  managerId   String?
+  
+  employees   Employee[]
+  positions   Position[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("departments")
+}
+
+// Position/Job Title
+model Position {
+  id            String     @id @default(cuid())
+  title         String
+  description   String?
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id])
+  level         JobLevel   @default(JUNIOR)
+  
+  employees     Employee[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("positions")
+}
+
+// Salary Information
+model SalaryInfo {
+  id           String   @id @default(cuid())
+  employeeId   String   @unique
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  baseSalary   Decimal
+  currency     String   @default("USD")
+  payFrequency PayFrequency @default(MONTHLY)
+  
+  // Benefits
+  healthInsurance Boolean @default(false)
+  lifeInsurance   Boolean @default(false)
+  retirement      Boolean @default(false)
+  
+  effectiveDate DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("salary_info")
+}
+
+// Attendance
+model Attendance {
+  id         String          @id @default(cuid())
+  employeeId String
+  employee   Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  date       DateTime        @db.Date
+  clockIn    DateTime?
+  clockOut   DateTime?
+  breakStart DateTime?
+  breakEnd   DateTime?
+  
+  status     AttendanceStatus @default(PRESENT)
+  hoursWorked Decimal?
+  overtime   Decimal?
+  notes      String?
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([employeeId, date])
+  @@map("attendance")
+}
+
+// Leave Management
+model LeaveRequest {
+  id         String      @id @default(cuid())
+  employeeId String
+  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  leaveType  LeaveType
+  startDate  DateTime    @db.Date
+  endDate    DateTime    @db.Date
+  reason     String
+  status     LeaveStatus @default(PENDING)
+  
+  approvedBy String?
+  approvedAt DateTime?
+  rejectedAt DateTime?
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("leave_requests")
+}
+
+// Performance Management
+model Performance {
+  id           String           @id @default(cuid())
+  employeeId   String
+  employee     Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  reviewPeriod String          // e.g., "Q1 2024", "Annual 2024"
+  reviewType   ReviewType      @default(ANNUAL)
+  
+  goals        String?
+  achievements String?
+  feedback     String?
+  rating       PerformanceRating?
+  
+  reviewerId   String?
+  reviewDate   DateTime?
+  status       ReviewStatus    @default(DRAFT)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("performance")
+}
+
+// Payroll
+model Payroll {
+  id           String   @id @default(cuid())
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  payPeriodStart DateTime @db.Date
+  payPeriodEnd   DateTime @db.Date
+  
+  basePay      Decimal
+  overtime     Decimal  @default(0)
+  bonuses      Decimal  @default(0)
+  deductions   Decimal  @default(0)
+  taxes        Decimal  @default(0)
+  netPay       Decimal
+  
+  status       PayrollStatus @default(DRAFT)
+  processedAt  DateTime?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("payroll")
+}
+
+// Document Management
+model Document {
+  id         String       @id @default(cuid())
+  employeeId String
+  employee   Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  title      String
+  type       DocumentType
+  fileName   String
+  fileUrl    String
+  fileSize   Int?
+  mimeType   String?
+  
+  uploadedBy String
+  uploadedAt DateTime @default(now())
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("documents")
+}
+
+// OTP Verification model
+model OtpVerification {
+  id        String   @id @default(cuid())
+  email     String
+  otp       String
+  type      OtpType  // REGISTRATION, PASSWORD_RESET, EMAIL_VERIFICATION
+  verified  Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("otp_verifications")
+}
+
+// Login Logs model
+model LoginLog {
+  id           String    @id @default(cuid())
+  userId       String?
+  user         User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email        String
+  ipAddress    String?
+  userAgent    String?
+  loginTime    DateTime  @default(now())
+  success      Boolean
+  failureReason String?
+
+  @@map("login_logs")
+}
+
+// Password Reset Tokens model
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("password_reset_tokens")
+}
+
+// Enums
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  HR_MANAGER
+  MANAGER
+  EMPLOYEE
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+  ON_LEAVE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+}
+
+enum JobLevel {
+  INTERN
+  JUNIOR
+  MID
+  SENIOR
+  LEAD
+  MANAGER
+  DIRECTOR
+  VP
+  C_LEVEL
+}
+
+enum PayFrequency {
+  WEEKLY
+  BI_WEEKLY
+  MONTHLY
+  QUARTERLY
+  ANNUALLY
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  HOLIDAY
+  WEEKEND
+}
+
+enum LeaveType {
+  VACATION
+  SICK
+  PERSONAL
+  MATERNITY
+  PATERNITY
+  BEREAVEMENT
+  UNPAID
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ReviewType {
+  QUARTERLY
+  ANNUAL
+  PROBATION
+  PROJECT_BASED
+}
+
+enum PerformanceRating {
+  EXCEEDS_EXPECTATIONS
+  MEETS_EXPECTATIONS
+  BELOW_EXPECTATIONS
+  UNSATISFACTORY
+}
+
+enum ReviewStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  APPROVED
+}
+
+enum PayrollStatus {
+  DRAFT
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+enum DocumentType {
+  CONTRACT
+  ID_COPY
+  RESUME
+  CERTIFICATE
+  PERFORMANCE_REVIEW
+  DISCIPLINARY
+  OTHER
+}
+
+enum OtpType {
+  REGISTRATION
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+  LOGIN_VERIFICATION
+}

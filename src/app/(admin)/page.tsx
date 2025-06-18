@@ -1,41 +1,66 @@
 import type { Metadata } from "next";
-import { EcommerceMetrics } from "@/components/ecommerce/EcommerceMetrics";
-import React from "react";
-import MonthlyTarget from "@/components/ecommerce/MonthlyTarget";
-import MonthlySalesChart from "@/components/ecommerce/MonthlySalesChart";
-import StatisticsChart from "@/components/ecommerce/StatisticsChart";
-import RecentOrders from "@/components/ecommerce/RecentOrders";
-import DemographicCard from "@/components/ecommerce/DemographicCard";
+import { getServerSession } from "next-auth/next";
+import { redirect } from "next/navigation";
+import { authOptions } from "@/lib/auth";
+import type { Session } from "next-auth";
 
 export const metadata: Metadata = {
-  title:
-    "Next.js E-commerce Dashboard | TailAdmin - Next.js Dashboard Template",
-  description: "This is Next.js Home for TailAdmin Dashboard Template",
+  title: "HRMS Dashboard | Human Resource Management System",
+  description: "Comprehensive HRMS dashboard for managing employees, attendance, payroll, and more",
 };
 
-export default function Ecommerce() {
+export default async function HomePage() {
+  const session = await getServerSession(authOptions) as Session | null;
+  
+  if (!session?.user) {
+    redirect("/auth/signin");
+  }
+
+  // Role-based routing logic
+  const userRole = session.user.role;
+  
   return (
-    <div className="grid grid-cols-12 gap-4 md:gap-6">
-      <div className="col-span-12 space-y-6 xl:col-span-7">
-        <EcommerceMetrics />
-
-        <MonthlySalesChart />
-      </div>
-
-      <div className="col-span-12 xl:col-span-5">
-        <MonthlyTarget />
-      </div>
-
-      <div className="col-span-12">
-        <StatisticsChart />
-      </div>
-
-      <div className="col-span-12 xl:col-span-5">
-        <DemographicCard />
-      </div>
-
-      <div className="col-span-12 xl:col-span-7">
-        <RecentOrders />
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <h1 className="text-2xl font-bold text-gray-900">
+          Welcome back, {session.user.firstName} {session.user.lastName}!
+        </h1>
+        <p className="text-gray-600">
+          Role: {userRole} • Email: {session.user.email}
+        </p>
+        <div className="mt-4">
+          <p>Dashboard is loading successfully!</p>
+          <p>User ID: {session.user.id}</p>
+          
+          {/* Role-based dashboard content */}
+          {(userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <h3 className="font-semibold text-blue-900">Admin Dashboard</h3>
+              <p className="text-blue-700">You have administrative privileges</p>
+            </div>
+          )}
+          
+          {userRole === 'HR_MANAGER' && (
+            <div className="mt-4 p-4 bg-green-50 rounded-lg">
+              <h3 className="font-semibold text-green-900">HR Manager Dashboard</h3>
+              <p className="text-green-700">Manage HR operations and employee data</p>
+            </div>
+          )}
+          
+          {userRole === 'MANAGER' && (
+            <div className="mt-4 p-4 bg-purple-50 rounded-lg">
+              <h3 className="font-semibold text-purple-900">Manager Dashboard</h3>
+              <p className="text-purple-700">Manage your team and projects</p>
+            </div>
+          )}
+          
+          {userRole === 'EMPLOYEE' && (
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+              <h3 className="font-semibold text-gray-900">Employee Dashboard</h3>
+              <p className="text-gray-700">View your profile, attendance, and tasks</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -28,6 +28,7 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
 
 # vercel
 .vercel
@@ -35,3 +36,69 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/src/generated/prisma
+
+# Additional HRMS Project Ignores
+
+# Environment variables (IMPORTANT - Contains sensitive data)
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Prisma
+# Keep schema.prisma but ignore some generated files
+prisma/migrations/dev.db*
+prisma/dev.db*
+
+# IDE and Editor files
+.vscode/settings.json
+.vscode/launch.json
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Coverage directory
+coverage/
+.nyc_output
+
+# Cache directories
+.cache/
+.parcel-cache/
+.turbo
+
+# Auth setup guides (contains sensitive info)
+GMAIL_SETUP_GUIDE.md
+AUTH_IMPLEMENTATION_COMPLETE.md
+
+# Test scripts with credentials
+scripts/create-users.js
+scripts/verify-users.js
+scripts/test-auth.js
+
+# Backup files
+*.bak
+*.backup
+
+# Temporary files
+tmp/
+temp/
+*.tmp
