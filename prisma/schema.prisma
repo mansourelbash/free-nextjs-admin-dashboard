@@ -34,6 +34,7 @@ model User {
   // New Relations for enhanced auth
   loginLogs           LoginLog[]
   passwordResetTokens PasswordResetToken[]
+  notifications       Notification[]
 
   // HRMS Relations
   employee  Employee?
@@ -277,6 +278,9 @@ model LeaveRequest {
   approvedAt DateTime?
   rejectedAt DateTime?
   
+  // Relations
+  notifications Notification[]
+  
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -393,6 +397,30 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   @@map("password_reset_tokens")
+}
+
+// Notification model for real-time notifications
+model Notification {
+  id            String           @id @default(cuid())
+  userId        String           // User who receives the notification
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type          NotificationType
+  title         String
+  message       String
+  actionUrl     String?          // URL to navigate to when notification is clicked
+  
+  // Optional reference to related entities
+  leaveRequestId String?
+  leaveRequest   LeaveRequest?    @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+  
+  isRead        Boolean          @default(false)
+  readAt        DateTime?
+  
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@map("notifications")
 }
 
 // Enums
@@ -513,4 +541,12 @@ enum OtpType {
   PASSWORD_RESET
   EMAIL_VERIFICATION
   LOGIN_VERIFICATION
+}
+
+enum NotificationType {
+  LEAVE_REQUEST_SUBMITTED
+  LEAVE_REQUEST_APPROVED
+  LEAVE_REQUEST_REJECTED
+  LEAVE_REQUEST_CANCELLED
+  GENERAL
 }

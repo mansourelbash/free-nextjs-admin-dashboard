@@ -3,6 +3,7 @@ import './globals.css';
 
 import { SidebarProvider } from '@/context/SidebarContext';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { NotificationProvider } from '@/context/NotificationContext';
 import Providers from '@/components/auth/SessionProvider';
 
 const outfit = Outfit({
@@ -17,9 +18,11 @@ export default function RootLayout({
       <html lang="en">
         <body className={`${outfit.className} dark:bg-gray-900`}>
           <Providers>
-            <ThemeProvider>
-              <SidebarProvider>{children}</SidebarProvider>
-            </ThemeProvider>
+            <NotificationProvider>
+              <ThemeProvider>
+                <SidebarProvider>{children}</SidebarProvider>
+              </ThemeProvider>
+            </NotificationProvider>
           </Providers>
         </body>
       </html>

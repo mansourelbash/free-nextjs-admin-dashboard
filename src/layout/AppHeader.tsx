@@ -159,13 +159,48 @@ const AppHeader: React.FC = () => {
           className={`${
             isApplicationMenuOpen ? "flex" : "hidden"
           } items-center justify-between w-full gap-4 px-5 py-4 lg:flex shadow-theme-md lg:justify-end lg:px-0 lg:shadow-none`}
-        >
-          <div className="flex items-center gap-2 2xsm:gap-3">
+        >          <div className="flex items-center gap-2 2xsm:gap-3">
             {/* <!-- Dark Mode Toggler --> */}
             <ThemeToggleButton />
-            {/* <!-- Dark Mode Toggler --> */}
+            {/* <!-- Dark Mode Toggler --> */}            {/* <!-- Test Notification Button (Development) --> */}
+            {process.env.NODE_ENV === 'development' && (
+              <>
+                <button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/test-notification', { method: 'POST' });
+                      if (response.ok) {
+                        console.log('Test notification created successfully');
+                      }
+                    } catch (error) {
+                      console.error('Failed to create test notification:', error);
+                    }
+                  }}
+                  className="flex items-center justify-center w-8 h-8 text-xs text-white bg-blue-500 rounded-full hover:bg-blue-600"
+                  title="Create Test Notification"
+                >
+                  T
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('/api/test-approval-notification', { method: 'POST' });
+                      if (response.ok) {
+                        console.log('Test approval notification created successfully');
+                      }
+                    } catch (error) {
+                      console.error('Failed to create test approval notification:', error);
+                    }
+                  }}
+                  className="flex items-center justify-center w-8 h-8 text-xs text-white bg-green-500 rounded-full hover:bg-green-600"
+                  title="Create Test Approval Notification"
+                >
+                  A
+                </button>
+              </>
+            )}
 
-           <NotificationDropdown /> 
+           <NotificationDropdown />
             {/* <!-- Notification Menu Area --> */}
           </div>          {/* <!-- User Area --> */}
           <HRMSUserDropdown />
