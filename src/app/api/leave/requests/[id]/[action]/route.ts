@@ -159,10 +159,71 @@ export async function PATCH(
           leaveRequest.employee.userId,
           formattedLeaveType,
           'REJECTED',
-          approverName
-        );
-        console.log('Rejection notification created successfully:', notification.id);
-      }      // Note: withdraw action doesn't send notification to employee (they initiated it)
+          approverName        );
+        console.log('Rejection notification created successfully:', notification.id);      } else if (action === 'withdraw') {
+        // Notify admin/manager when employee cancels their leave request
+        const employeeName = `${leaveRequest.employee.user.firstName} ${leaveRequest.employee.user.lastName}`;        // Find manager to notify about the cancellation
+        const employeeWithManager = await prisma.employee.findUnique({
+          where: { id: leaveRequest.employee.id },
+          include: { 
+            manager: {
+              select: { id: true, email: true }
+            }
+          }
+        });
+        
+        const managerUserId = employeeWithManager?.manager?.id;
+        
+        // Notify direct manager if exists
+        if (managerUserId) {
+          try {
+            const managerNotification = await NotificationService.createLeaveCancellationNotification(
+              leaveRequest.id,
+              managerUserId,
+              employeeName,
+              formattedLeaveType
+            );
+            console.log('Manager cancellation notification created:', managerNotification.id);
+          } catch (error) {
+            console.error('Error creating manager cancellation notification:', error);
+          }
+        }
+        
+        // ALSO notify all admins about the cancellation
+        const adminUsers = await prisma.user.findMany({
+          where: {
+            OR: [
+              { role: 'HR_MANAGER' },
+              { role: 'ADMIN' },
+              { role: 'SUPER_ADMIN' }
+            ],
+            isActive: true,
+            // Don't duplicate notification if admin is already the direct manager
+            ...(managerUserId ? { id: { not: managerUserId } } : {})
+          }
+        });
+        
+        console.log(`Found ${adminUsers.length} admin users to notify about leave cancellation`);
+        
+        // Create cancellation notifications for all admins
+        for (const adminUser of adminUsers) {
+          try {
+            const adminNotification = await NotificationService.createLeaveCancellationNotification(
+              leaveRequest.id,
+              adminUser.id,
+              employeeName,
+              formattedLeaveType
+            );
+            console.log('Admin cancellation notification created:', adminNotification.id, 'for admin:', adminUser.email);
+          } catch (error) {
+            console.error('Error creating admin cancellation notification for:', adminUser.email, error);
+          }
+        }
+        
+        if (!managerUserId && adminUsers.length === 0) {
+          console.warn('No manager/admin found to notify about leave cancellation:', leaveRequest.id);
+        }
+      }// Note: withdraw action doesn't send notification to employee (they initiated it)
     } catch (notificationError) {
       console.error('Error creating notification:', notificationError);
       console.error('Leave request data:', {

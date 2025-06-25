@@ -102,9 +102,7 @@ export default function SignInPage() {
               <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
                 Remember me
               </label>
-            </div>
-
-            <div className="text-sm">
+            </div>            <div className="text-sm">
               <Link
                 href="/auth/forgot-password"
                 className="font-medium text-indigo-600 hover:text-indigo-500"
@@ -112,7 +110,23 @@ export default function SignInPage() {
                 Forgot your password?
               </Link>
             </div>
-          </div>          <div>
+          </div>
+
+          <div className="text-center">
+            <Link
+              href="/auth/reset-password-otp"
+              className="text-sm font-medium text-blue-600 hover:text-blue-500"
+            >
+              Reset password with OTP
+            </Link>
+            <span className="mx-2 text-gray-300">|</span>
+            <Link
+              href="/auth/verify-email"
+              className="text-sm font-medium text-green-600 hover:text-green-500"
+            >
+              Verify email
+            </Link>
+          </div><div>
             <button
               type="submit"
               disabled={isLoading}

@@ -1,18 +1,30 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import PageBreadcrumb from '@/components/common/PageBreadCrumb';
 import ComponentCard from '@/components/common/ComponentCard';
 import Alert from '@/components/ui/alert/Alert';
 import Button from '@/components/ui/button/Button';
 import { Modal } from '@/components/ui/modal';
 import JordanianDatePicker from '@/components/form/JordanianFlatpickr';
-import SimpleDatePicker from '@/components/form/SimpleDatePicker';
 import { useNotifications } from '@/context/NotificationContext';
 import Select from '@/components/form/Select';
 import Label from '@/components/form/Label';
 import { PlusIcon } from '@/icons';
 import { calculateWorkingDays } from '@/utils/jordanian-holidays';
+
+interface ExtendedUser {
+  role?: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+}
+
+interface ExtendedSession {
+  user?: ExtendedUser;
+  expires: string;
+}
 
 interface LeaveRequest {
   id: string;
@@ -27,6 +39,14 @@ interface LeaveRequest {
   employee: {
     firstName: string;
     lastName: string;
+    user: {
+      firstName: string;
+      lastName: string;
+      email: string;
+    };
+    department: {
+      name: string;
+    } | null;
   };
   createdAt: string;
 }
@@ -46,6 +66,7 @@ interface UserLeaveBalance {
 }
 
 const LeaveRequestsPage = () => {
+  const { data: session } = useSession() as { data: ExtendedSession | null };
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);  const [leaveTypes, setLeaveTypes] = useState<{id: string, name: string}[]>([]);
@@ -67,10 +88,11 @@ const LeaveRequestsPage = () => {
     setNotification({ type, title, message });
     setTimeout(() => setNotification(null), 5000);
   };
-
   const fetchLeaveTypes = useCallback(async () => {
     try {
-      const response = await fetch('/api/leave/types');
+      const response = await fetch('/api/leave/types', {
+        credentials: 'include'
+      });
       if (response.ok) {
         const data = await response.json();
         setLeaveTypes(data);
@@ -79,10 +101,11 @@ const LeaveRequestsPage = () => {
       console.error('Error fetching leave types:', error);
     }
   }, []);
-
   const fetchLeaveRequests = useCallback(async () => {
     try {
-      const response = await fetch('/api/leave/requests');
+      const response = await fetch('/api/leave/requests', {
+        credentials: 'include'
+      });
       if (response.ok) {
         const data = await response.json();
         setLeaveRequests(data);
@@ -95,11 +118,12 @@ const LeaveRequestsPage = () => {
       setLoading(false);
     }
   }, []);
-
   const fetchLeaveBalance = async () => {
     setBalanceLoading(true);
     try {
-      const response = await fetch('/api/leave/balance');
+      const response = await fetch('/api/leave/balance', {
+        credentials: 'include'
+      });
       if (response.ok) {
         const data = await response.json();
         if (data.length > 0) {
@@ -137,14 +161,19 @@ const LeaveRequestsPage = () => {
       CANCELLED: 'bg-gray-100 text-gray-800 dark:bg-gray-700/20 dark:text-gray-400',
     };
     return statusConfig[status as keyof typeof statusConfig] || 'bg-gray-100 text-gray-800 dark:bg-gray-700/20 dark:text-gray-400';
-  };
-  const formatDate = (dateString: string) => {
+  };  const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
     });
-  };  const handleSubmitRequest = async () => {
+  };
+
+  // Check if user can view employee details (admin/manager roles)
+  const canViewEmployeeDetails = session?.user?.role === 'ADMIN' ||
+                                 session?.user?.role === 'SUPER_ADMIN' ||
+                                 session?.user?.role === 'HR_MANAGER' ||
+                                 session?.user?.role === 'MANAGER';const handleSubmitRequest = async () => {
     if (submitting) return; // Prevent double submission
     
     if (!newRequest.startDate || !newRequest.endDate || !newRequest.leaveType || !newRequest.reason) {
@@ -163,14 +192,14 @@ const LeaveRequestsPage = () => {
     }
 
     setSubmitting(true);
-    try {
-      const response = await fetch('/api/leave/requests', {
+    try {      const response = await fetch('/api/leave/requests', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include session cookies
         body: JSON.stringify(newRequest),
-      });      if (response.ok) {
+      });if (response.ok) {
         showNotification('success', 'Success', 'Leave request submitted successfully');
         setShowCreateModal(false);
         setNewRequest({ startDate: '', endDate: '', leaveType: '', reason: '' });
@@ -187,8 +216,7 @@ const LeaveRequestsPage = () => {
     } finally {
       setSubmitting(false);
     }
-  };
-  const handleWithdrawRequest = async (requestId: string) => {
+  };  const handleWithdrawRequest = async (requestId: string) => {
     if (!confirm('Are you sure you want to withdraw this leave request?')) {
       return;
     }
@@ -196,6 +224,7 @@ const LeaveRequestsPage = () => {
     try {
       const response = await fetch(`/api/leave/requests/${requestId}/withdraw`, {
         method: 'PATCH',
+        credentials: 'include'
       });
 
       if (response.ok) {
@@ -254,9 +283,13 @@ const LeaveRequestsPage = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full table-auto">
-              <thead>
+            <table className="w-full table-auto">              <thead>
                 <tr className="bg-gray-2 text-left dark:bg-meta-4">
+                  {canViewEmployeeDetails && (
+                    <th className="min-w-[180px] py-4 px-4 font-medium text-black dark:text-white">
+                      Employee
+                    </th>
+                  )}
                   <th className="min-w-[150px] py-4 px-4 font-medium text-black dark:text-white">
                     Leave Type
                   </th>
@@ -274,7 +307,8 @@ const LeaveRequestsPage = () => {
                   </th>
                   <th className="min-w-[200px] py-4 px-4 font-medium text-black dark:text-white">
                     Reason
-                  </th>                  <th className="py-4 px-4 font-medium text-black dark:text-white">
+                  </th>
+                  <th className="py-4 px-4 font-medium text-black dark:text-white">
                     Applied On
                   </th>
                   <th className="min-w-[120px] py-4 px-4 font-medium text-black dark:text-white">
@@ -282,9 +316,20 @@ const LeaveRequestsPage = () => {
                   </th>
                 </tr>
               </thead>
-              <tbody>
-                {leaveRequests.map((request) => (
+              <tbody>                {leaveRequests.map((request) => (
                   <tr key={request.id} className="border-b border-stroke dark:border-strokedark">
+                    {canViewEmployeeDetails && (
+                      <td className="py-4 px-4">
+                        <div className="text-black dark:text-white">
+                          <p className="font-medium">
+                            {request.employee.user.firstName} {request.employee.user.lastName}
+                          </p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {request.employee.department?.name || 'No Department'}
+                          </p>
+                        </div>
+                      </td>
+                    )}
                     <td className="py-4 px-4">
                       <p className="text-black dark:text-white">
                         {request.leaveType.name}

@@ -138,13 +138,19 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions as any) as ExtendedSession | null;
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const body = await request.json();
+    }    const body = await request.json();
     const { leaveType, startDate, endDate, reason } = body;
+
+    console.log('Leave request data received:', { leaveType, startDate, endDate, reason });
 
     // Validate required fields
     if (!leaveType || !startDate || !endDate || !reason) {
+      console.log('Missing required fields:', { 
+        hasLeaveType: !!leaveType, 
+        hasStartDate: !!startDate, 
+        hasEndDate: !!endDate, 
+        hasReason: !!reason 
+      });
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -165,7 +171,17 @@ export async function POST(request: NextRequest) {
     const start = new Date(startDate);
     const end = new Date(endDate);
     
+    console.log('Date validation:', { 
+      startDate, 
+      endDate, 
+      parsedStart: start, 
+      parsedEnd: end,
+      startBeforeEnd: start < end,
+      startInFuture: start >= new Date()
+    });
+    
     if (start >= end) {
+      console.log('Date validation failed: End date must be after start date');
       return NextResponse.json(
         { error: 'End date must be after start date' },
         { status: 400 }
@@ -173,6 +189,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (start < new Date()) {
+      console.log('Date validation failed: Start date cannot be in the past');
       return NextResponse.json(
         { error: 'Start date cannot be in the past' },
         { status: 400 }
@@ -223,36 +240,19 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-    });    // Create notification for manager
+    });    // Create notifications for manager and admins
     try {
       const employeeName = `${leaveRequest.employee.user.firstName} ${leaveRequest.employee.user.lastName}`;
       const formattedLeaveType = leaveType.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
       const formattedStartDate = start.toLocaleDateString();
-      const formattedEndDate = end.toLocaleDateString();
-
-      // Find manager (either direct manager or department manager)
-      let managerUserId = leaveRequest.employee.manager?.id;
+      const formattedEndDate = end.toLocaleDateString();      // Find manager (either direct manager or department manager)
+      const managerUserId = leaveRequest.employee.manager?.id;
 
       console.log('Looking for manager to notify. Direct manager ID:', managerUserId);
 
-      if (!managerUserId) {
-        // If no direct manager, find department manager or any HR_MANAGER/ADMIN
-        const departmentManager = await (prisma as any).user.findFirst({
-          where: {
-            OR: [
-              { role: 'HR_MANAGER' },
-              { role: 'ADMIN' },
-              { role: 'SUPER_ADMIN' }
-            ],
-            isActive: true
-          }
-        });
-        managerUserId = departmentManager?.id;
-        console.log('No direct manager found, using department/admin manager:', managerUserId);
-      }
-
+      // Always notify direct manager if exists
       if (managerUserId) {
-        console.log('Creating notification for manager:', managerUserId);
+        console.log('Creating notification for direct manager:', managerUserId);
         const notification = await NotificationService.createLeaveRequestNotification(
           leaveRequest.id,
           employeeName,
@@ -261,9 +261,45 @@ export async function POST(request: NextRequest) {
           formattedEndDate,
           managerUserId
         );
-        console.log('Notification created successfully:', notification.id);
-      } else {
-        console.warn('No manager found to notify for leave request:', leaveRequest.id);
+        console.log('Manager notification created successfully:', notification.id);
+      }
+
+      // ALSO notify all admins for better oversight
+      const adminUsers = await (prisma as any).user.findMany({
+        where: {
+          OR: [
+            { role: 'HR_MANAGER' },
+            { role: 'ADMIN' },
+            { role: 'SUPER_ADMIN' }
+          ],
+          isActive: true,
+          // Don't duplicate notification if admin is already the direct manager
+          ...(managerUserId ? { id: { not: managerUserId } } : {})
+        }
+      });
+
+      console.log(`Found ${adminUsers.length} admin users to notify about leave request`);
+
+      // Create notifications for all admins
+      for (const adminUser of adminUsers) {
+        try {
+          const adminNotification = await NotificationService.createLeaveRequestNotification(
+            leaveRequest.id,
+            employeeName,
+            formattedLeaveType,
+            formattedStartDate,
+            formattedEndDate,
+            adminUser.id
+          );
+          console.log('Admin notification created successfully:', adminNotification.id, 'for admin:', adminUser.email);
+        } catch (adminNotificationError) {
+          console.error('Error creating admin notification for:', adminUser.email, adminNotificationError);
+        }
+      }
+
+      // If no direct manager and no admins found, log a warning
+      if (!managerUserId && adminUsers.length === 0) {
+        console.warn('No manager or admin found to notify for leave request:', leaveRequest.id);
       }
     } catch (notificationError) {
       console.error('Error creating notification:', notificationError);

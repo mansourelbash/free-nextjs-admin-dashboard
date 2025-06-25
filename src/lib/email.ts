@@ -11,8 +11,7 @@ class EmailService {
         pass: process.env.GMAIL_APP_PASSWORD, // Gmail App Password (not regular password)
       },
     });
-  }
-  async sendOTP(email: string, otp: string, type: string) {
+  }  async sendOTP(email: string, otp: string, type: string) {
     // Check if Gmail credentials are properly configured
     if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
       console.error('❌ Gmail credentials not configured. Please set GMAIL_USER and GMAIL_APP_PASSWORD in .env.local');
@@ -23,6 +22,18 @@ class EmailService {
 
     if (process.env.GMAIL_USER === 'your-gmail@gmail.com' || process.env.GMAIL_APP_PASSWORD === 'your-gmail-app-password') {
       console.error('❌ Gmail credentials are still using placeholder values.');
+      console.error('📧 For testing purposes, we\'ll simulate email sending...');
+      console.log(`🔢 OTP for ${email}: ${otp} (Type: ${type})`);
+      return true; // Return true for development testing
+    }
+
+    if (process.env.GMAIL_APP_PASSWORD === 'your-16-character-app-password-here') {
+      console.error('❌ Gmail App Password not configured properly.');
+      console.error('📧 Please follow these steps:');
+      console.error('   1. Enable 2-Factor Authentication on your Gmail account');
+      console.error('   2. Go to Google Account Security settings');
+      console.error('   3. Generate an App Password for Mail');
+      console.error('   4. Replace GMAIL_APP_PASSWORD in .env.local with the 16-character code');
       console.error('📧 For testing purposes, we\'ll simulate email sending...');
       console.log(`🔢 OTP for ${email}: ${otp} (Type: ${type})`);
       return true; // Return true for development testing
@@ -40,9 +51,18 @@ class EmailService {
       });
 
       console.log('✅ Email sent successfully:', info.messageId);
-      return true;
-    } catch (error) {
+      return true;    } catch (error: unknown) {
       console.error('❌ Error sending email:', error);
+      
+      // Provide specific error guidance
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'EAUTH') {
+        console.error('🔧 Authentication Error - This usually means:');
+        console.error('   1. You\'re using your regular Gmail password instead of an App Password');
+        console.error('   2. 2-Factor Authentication is not enabled on your Gmail account');
+        console.error('   3. The App Password is incorrect or expired');
+        console.error('📧 Please generate a new Gmail App Password and update .env.local');
+      }
+      
       console.error('📧 For testing purposes, we\'ll simulate email sending...');
       console.log(`🔢 OTP for ${email}: ${otp} (Type: ${type})`);
       return true; // Return true for development testing to not block the flow

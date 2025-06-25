@@ -1,29 +1,20 @@
-import {
-  DashboardIcon,
-  EmployeesIcon,
-  AttendanceIcon,
-  PayrollIcon,
-  LeaveIcon,
-  PerformanceIcon,
-  ReportsIcon,
-  SettingsIcon,
-} from '@/components/hrms/HRMSIcons';
+// HRMS Navigation Configuration
 
 type NavItem = {
   name: string;
-  icon: React.ReactNode;
+  icon: string; // Change to string instead of React.ReactNode
   path?: string;
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
 };
 
 export const hrmsNavItems: NavItem[] = [
   {
-    icon: <DashboardIcon />,
+    icon: "dashboard",
     name: "Dashboard",
     path: "/dashboard",
   },
   {
-    icon: <EmployeesIcon />,
+    icon: "employees",
     name: "Employees",
     subItems: [
       { name: "All Employees", path: "/employees", pro: false },
@@ -32,9 +23,8 @@ export const hrmsNavItems: NavItem[] = [
       { name: "Departments", path: "/employees/departments", pro: false },
       { name: "Positions", path: "/employees/positions", pro: false },
     ],
-  },
-  {
-    icon: <AttendanceIcon />,
+  },  {
+    icon: "attendance",
     name: "Attendance",
     subItems: [
       { name: "Daily Attendance", path: "/attendance/daily", pro: false },
@@ -44,7 +34,7 @@ export const hrmsNavItems: NavItem[] = [
     ],
   },
   {
-    icon: <LeaveIcon />,
+    icon: "leave",
     name: "Leave Management",
     subItems: [
       { name: "Leave Requests", path: "/leave/requests", pro: false },
@@ -52,9 +42,8 @@ export const hrmsNavItems: NavItem[] = [
       { name: "Leave Balance", path: "/leave/balance", pro: false },
       { name: "Leave Policies", path: "/leave/policies", pro: false },
     ],
-  },
-  {
-    icon: <PayrollIcon />,
+  },  {
+    icon: "payroll",
     name: "Payroll",
     subItems: [
       { name: "Payroll Processing", path: "/payroll/processing", pro: false },
@@ -67,7 +56,7 @@ export const hrmsNavItems: NavItem[] = [
 
 export const hrmsOthersItems: NavItem[] = [
   {
-    icon: <PerformanceIcon />,
+    icon: "performance",
     name: "Performance",
     subItems: [
       { name: "Performance Reviews", path: "/performance/reviews", pro: false },
@@ -77,7 +66,7 @@ export const hrmsOthersItems: NavItem[] = [
     ],
   },
   {
-    icon: <ReportsIcon />,
+    icon: "reports",
     name: "Reports & Analytics",
     subItems: [
       { name: "Employee Reports", path: "/reports/employees", pro: false },
@@ -87,7 +76,7 @@ export const hrmsOthersItems: NavItem[] = [
     ],
   },
   {
-    icon: <SettingsIcon />,
+    icon: "settings",
     name: "Settings",
     subItems: [
       { name: "Company Settings", path: "/settings/company", pro: false },

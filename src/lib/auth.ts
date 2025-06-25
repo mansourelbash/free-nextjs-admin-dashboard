@@ -4,6 +4,43 @@ import FacebookProvider from "next-auth/providers/facebook";
 import { prisma } from "./prisma";
 import bcrypt from "bcryptjs";
 
+// Helper function to ensure employee record exists
+async function ensureEmployeeRecord(userId: string) {
+  try {
+    // Check if employee record already exists
+    const existingEmployee = await (prisma as any).employee.findUnique({
+      where: { userId }
+    });
+    
+    if (!existingEmployee) {
+      console.log('Creating employee record for user:', userId);
+      
+      // Get default department (if any)
+      const defaultDepartment = await (prisma as any).department.findFirst({
+        orderBy: { createdAt: 'asc' }
+      });
+      
+      // Create employee record
+      await (prisma as any).employee.create({
+        data: {
+          userId,
+          employeeId: `EMP${Date.now()}${Math.random().toString(36).substr(2, 3).toUpperCase()}`,
+          departmentId: defaultDepartment?.id || null,
+          hireDate: new Date(),
+          status: 'ACTIVE'
+        }
+      });
+      
+      console.log('Employee record created successfully for user:', userId);
+    } else {
+      console.log('Employee record already exists for user:', userId);
+    }
+  } catch (error) {
+    console.error('Error ensuring employee record:', error);
+    // Don't throw error to avoid blocking sign-in
+  }
+}
+
 // Helper function to log login attempts (simplified for now)
 async function logLoginAttempt(
   email: string,
@@ -31,7 +68,7 @@ async function logLoginAttempt(
   }
 }
 
-export const authOptions = {
+export const authOptions: any = {
   // Temporarily disable adapter to test social login
   // adapter: PrismaAdapter(prisma) as Adapter,
   providers: [
@@ -120,9 +157,8 @@ export const authOptions = {
         };
       }
     }),
-  ],
-  session: {
-    strategy: "jwt",
+  ],  session: {
+    strategy: "jwt" as const,
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   jwt: {
@@ -177,17 +213,24 @@ export const authOptions = {
             }
             console.log('Existing social login user:', existingUser.email, 'with role:', existingUser.role);
           }
-          
-          // Add user info to the user object for JWT callback
+            // Add user info to the user object for JWT callback
           user.id = existingUser.id;
           user.role = existingUser.role;
           user.firstName = existingUser.firstName;
           user.lastName = existingUser.lastName;
           user.imageUrl = existingUser.imageUrl;
           
+          // Ensure employee record exists for leave management
+          await ensureEmployeeRecord(existingUser.id);
+          
         } catch (error) {
           console.error('Error handling social login user:', error);
           return false; // Deny sign-in if database operation fails
+        }
+      } else {
+        // For credentials login, also ensure employee record exists
+        if (user?.id) {
+          await ensureEmployeeRecord(user.id);
         }
       }
       

@@ -28,14 +28,21 @@ interface LeaveRequest {
   id: string;
   startDate: string;
   endDate: string;
-  leaveType: string;
+  leaveType: {
+    name: string;
+  };
   reason: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   totalDays: number;
   employee: {
-    firstName: string;
-    lastName: string;
-    email: string;
+    user: {
+      firstName: string;
+      lastName: string;
+      email: string;
+    };
+    department: {
+      name: string;
+    } | null;
   };
   createdAt: string;
 }
@@ -55,10 +62,11 @@ const LeaveApprovalsPage = () => {
     setNotification({ type, title, message });
     setTimeout(() => setNotification(null), 5000);
   };
-
   const fetchPendingLeaveRequests = useCallback(async () => {
     try {
-      const response = await fetch('/api/leave/requests?status=PENDING');
+      const response = await fetch('/api/leave/requests?status=PENDING', {
+        credentials: 'include'
+      });
       if (response.ok) {
         const data = await response.json();
         setLeaveRequests(data);
@@ -75,7 +83,6 @@ const LeaveApprovalsPage = () => {
   useEffect(() => {
     fetchPendingLeaveRequests();
   }, [fetchPendingLeaveRequests]);
-
   const handleApproval = async (requestId: string, action: 'approve' | 'reject') => {
     try {
       const response = await fetch(`/api/leave/requests/${requestId}/${action}`, {
@@ -83,7 +90,8 @@ const LeaveApprovalsPage = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-      });      if (response.ok) {
+        credentials: 'include'
+      });if (response.ok) {
         fetchPendingLeaveRequests();
         // Refresh notifications to show the new notification to the employee
         refreshNotifications();
@@ -203,19 +211,18 @@ const LeaveApprovalsPage = () => {
               </thead>
               <tbody>
                 {leaveRequests.map((request) => (
-                  <tr key={request.id} className="border-b border-stroke dark:border-strokedark">
-                    <td className="py-4 px-4">
+                  <tr key={request.id} className="border-b border-stroke dark:border-strokedark">                    <td className="py-4 px-4">
                       <div>
                         <p className="text-black dark:text-white font-medium">
-                          {request.employee.firstName} {request.employee.lastName}
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {request.employee.email}
+                          {request.employee.user.firstName} {request.employee.user.lastName}
+                        </p>                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {request.employee.department?.name || 'No Department'}
                         </p>
                       </div>
-                    </td>                    <td className="py-4 px-4">
+                    </td>
+                    <td className="py-4 px-4">
                       <p className="text-black dark:text-white">
-                        {formatLeaveType(request.leaveType)}
+                        {request.leaveType.name}
                       </p>
                     </td>
                     <td className="py-4 px-4">
